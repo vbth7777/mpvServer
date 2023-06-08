@@ -1,9 +1,17 @@
 # MPV Server
-Mini tool to interact MPV in your terminal by web server.
+
+This is a mini tool that allows you to interact with MPV in your terminal through a web server.
+
 ## Features:
-- A web server that is localhost (You can use Localtunnel)
-- Run MPV command line in your terminal when you request post .
+
+- Provides a local web server (you can use Localtunnel).
+
+- Allows you to run MPV command lines in your terminal by making POST requests.
+
 ## Summary:
-You can mix them on so other tools to create your unique tool.
+
+This tool can be combined with other tools to create your own unique toolset.
+
 ### Example:
-I mix it with SurfingKeys to easily opening video just with my keyboard and some press
+
+For instance, I have combined it with SurfingKeys to easily open videos using just my keyboard with a few key presses.
