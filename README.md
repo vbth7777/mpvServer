@@ -8,6 +8,8 @@ This is a mini tool that allows you to interact with MPV in your terminal throug
 
 - Allows you to run MPV command lines in your terminal by making POST requests.
 
+- Supports queuing of multiple requests to the web server.
+
 ## Summary:
 
 This tool can be combined with other tools to create your own unique toolset.
