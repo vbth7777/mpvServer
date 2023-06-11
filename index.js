@@ -20,18 +20,28 @@ app.post('/', (req, res) => {
 
     commandQueue.push(callback => {
         console.log(`${greenColor}Executing mpv ${resetColor}(${url})...`);
-        exec(`mpv "${url}"`, (error, stdout, stderr) => {
-            if (error) {
-                console.log(`Error: ${error.message}`);
-                callback(error);
-            } else if (stderr) {
-                console.log(`Stderr: ${stderr}`);
-                callback(stderr);
-            } else {
-                console.log(`Stdout: ${stdout}`);
-                callback();
-            }
-        });
+        let countError = 0;
+        const execMpv = function() {
+            exec(`mpv "${url}"`, (error, stdout, stderr) => {
+                if (error) {
+                    console.log(`Error: ${error.message}`);
+                    console.log(`Try requesting again`);
+                    if (countError++ < 2) {
+                        execMpv();
+                    }
+                    else {
+                        callback(error);
+                    }
+                } else if (stderr) {
+                    console.log(`Stderr: ${stderr}`);
+                    callback(stderr);
+                } else {
+                    console.log(`Stdout: ${stdout}`);
+                    callback();
+                }
+            });
+        }
+        execMpv();
     });
 
     res.sendStatus(200);
