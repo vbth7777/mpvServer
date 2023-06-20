@@ -12,6 +12,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 const greenColor = '\x1b[32m'; // ANSI escape sequence for green color
+const blueColor = '\x1b[34m'; // ANSI escape sequence for green color
 const resetColor = '\x1b[0m'; // ANSI escape sequence to reset color
 
 app.post('/', (req, res) => {
@@ -19,7 +20,7 @@ app.post('/', (req, res) => {
     const pageUrl = req.body.pageUrl;
     let content = '';
     if (pageUrl) {
-        content = `${url} - ${pageUrl}`
+        content = `${url} - ${blueColor}${pageUrl}${resetColor}`
     }
     else {
         content = `${url}`
