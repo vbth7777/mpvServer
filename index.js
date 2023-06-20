@@ -16,10 +16,18 @@ const resetColor = '\x1b[0m'; // ANSI escape sequence to reset color
 
 app.post('/', (req, res) => {
     const url = req.body.url;
-    console.log(`${greenColor}Received request to open mpv ${resetColor}(${url})...`);
+    const pageUrl = req.body.pageUrl;
+    let content = '';
+    if (pageUrl) {
+        content = `${url} - ${pageUrl}`
+    }
+    else {
+        content = `${url}`
+    }
+    console.log(`${greenColor}Received request to open mpv ${resetColor}(${content})...`);
 
     commandQueue.push(callback => {
-        console.log(`${greenColor}Executing mpv ${resetColor}(${url})...`);
+        console.log(`${greenColor}Executing mpv ${resetColor}(${content})...`);
         let countError = 0;
         const execMpv = function() {
             exec(`mpv "${url}"`, (error, stdout, stderr) => {
