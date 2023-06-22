@@ -19,7 +19,7 @@ app.post('/', (req, res) => {
     const url = req.body.url;
     const pageUrl = req.body.pageUrl;
     let content = '';
-    if (pageUrl != 'null' || pageUrl) {
+    if (pageUrl != null || pageUrl) {
         content = `${url} - ${blueColor}${pageUrl}${resetColor}`
     }
     else {
