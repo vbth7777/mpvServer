@@ -35,7 +35,7 @@ app.post('/', (req, res) => {
                 if (error) {
                     console.log(`Error: ${error.message}`);
                     console.log(`Try requesting again`);
-                    if (countError++ < 2) {
+                    if (countError++ < 5) {
                         execMpv();
                     }
                     else {
