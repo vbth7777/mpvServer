@@ -31,7 +31,7 @@ app.post('/', (req, res) => {
         console.log(`${greenColor}Executing mpv ${resetColor}(${content})...`);
         let countError = 0;
         const execMpv = function() {
-            exec(`mpv "${url}"`, (error, stdout, stderr) => {
+            exec(`mpv "${url}" --fs`, (error, stdout, stderr) => {
                 if (error) {
                     console.log(`Error: ${error.message}`);
                     console.log(`Try requesting again`);
