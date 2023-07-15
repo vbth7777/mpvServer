@@ -2,16 +2,18 @@
   "name": "mpvserver",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "server.js",
   "scripts": {
-    "start": "node index.js ",
+    "start": "node server.js & lt --port 9789",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "async": "^3.2.4",
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "localtunnel": "^2.0.2",
+    "ws": "^8.13.0"
   },
   "devDependencies": {
     "nodemon": "^2.0.22"
