@@ -49,6 +49,10 @@ app.post('/', (req, res) => {
         return;
     }
     urls.push(pageUrl);
+    if (!fs.existsSync(pathRunningUrls)) {
+        fs.writeFileSync(pathRunningUrls, '');
+    }
+
     const runningUrls = fs.readFileSync(pathRunningUrls).toString();
     fs.writeFileSync(pathRunningUrls, runningUrls + '\n' + (pageUrl || url).toString());
     let content = '';
@@ -103,6 +107,9 @@ app.get('/mpv-status', (req, res) => {
 })
 
 app.listen(port, () => console.log(`Example app listening at http://localhost:${port}`))
+if (!fs.existsSync(pathRunningUrls)) {
+    fs.writeFileSync(pathRunningUrls, '');
+}
 const runningUrls = fs.readFileSync(pathRunningUrls).toString();
 if (runningUrls) {
     for (const url of runningUrls.split('\n')) {
