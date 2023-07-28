@@ -45,16 +45,19 @@ let urls = [];
 app.post('/', (req, res) => {
     const url = req.body.url;
     const pageUrl = req.body.pageUrl == 'null' ? null : req.body.pageUrl;
-    if (urls.includes(pageUrl) && pageUrl || url == '') {
+    if (urls.includes(pageUrl || url)) {
+        // console.log('Duplicate url: ', pageUrl || url)
+        res.send('Duplicated Url: ', pageUrl || url)
         return;
     }
-    urls.push(pageUrl);
+    urls.push(pageUrl || url);
     if (!fs.existsSync(pathRunningUrls)) {
         fs.writeFileSync(pathRunningUrls, '');
     }
 
     const runningUrls = fs.readFileSync(pathRunningUrls).toString();
-    fs.writeFileSync(pathRunningUrls, runningUrls + '\n' + (pageUrl || url).toString());
+    fs.writeFileSync(pathRunningUrls, urls.join('\n'));
+    // fs.writeFileSync(pathRunningUrls, runningUrls + '\n' + (pageUrl || url).toString());
     let content = '';
     if (pageUrl) {
         content = `${url} - ${blueColor}${pageUrl}${resetColor}`
@@ -88,9 +91,10 @@ app.post('/', (req, res) => {
                     console.log(`Stdout: ${stdout}`);
                     callback();
                 }
-                urls = urls.filter(item => item !== pageUrl);
+                urls = urls.filter(item => item != (pageUrl || url))
                 let runningUrls = fs.readFileSync(pathRunningUrls).toString();
-                fs.writeFileSync(pathRunningUrls, runningUrls.replace((pageUrl || url), '').replace(/\n+/, ''));
+                // fs.writeFileSync(pathRunningUrls, runningUrls.replace((pageUrl || url), '').replace(/\n+/, ''));
+                fs.writeFileSync(pathRunningUrls, urls.join('\n'));
                 wss.clients.forEach(function each(client) {
                     if (client.readyState === WebSocket.OPEN) {
                         client.send(null);
@@ -105,6 +109,10 @@ app.post('/', (req, res) => {
 app.get('/mpv-status', (req, res) => {
     res.send(isMpvRunning ? 'running' : 'not running');
 })
+app.get('/running-urls', (req, res) => {
+    res.send(urls)
+})
+
 
 app.listen(port, () => console.log(`Example app listening at http://localhost:${port}`))
 if (!fs.existsSync(pathRunningUrls)) {
@@ -112,7 +120,9 @@ if (!fs.existsSync(pathRunningUrls)) {
 }
 const runningUrls = fs.readFileSync(pathRunningUrls).toString();
 if (runningUrls) {
-    for (const url of runningUrls.split('\n')) {
+    let urls = runningUrls.split('\n')
+    urls = urls.filter((url, index) => urls.indexOf(url) === index);
+    for (const url of urls) {
         if (url) {
             console.log(`Resuming ${url}...`);
             fs.writeFileSync(pathRunningUrls, runningUrls.replace(url, ''));
