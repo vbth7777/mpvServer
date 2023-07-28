@@ -1,16 +1,17 @@
 const WebSocket = require('ws');
 const { WebSocketServer } = require('ws');
 
-
-
 const { exec } = require("child_process");
 const express = require('express');
 const path = require('path');
 const async = require('async');
+const fs = require('fs');
+const axios = require('axios');
 
 const app = express();
 const port = 9789;
 const commandQueue = async.queue((task, callback) => task(callback));
+const pathRunningUrls = path.join(__dirname, 'running-urls.txt');
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.urlencoded({ extended: true }));
@@ -43,13 +44,15 @@ let urls = [];
 
 app.post('/', (req, res) => {
     const url = req.body.url;
-    const pageUrl = req.body.pageUrl;
-    if (urls.includes(pageUrl) && pageUrl != 'null') {
+    const pageUrl = req.body.pageUrl == 'null' ? null : req.body.pageUrl;
+    if (urls.includes(pageUrl) && pageUrl || url == '') {
         return;
     }
     urls.push(pageUrl);
+    const runningUrls = fs.readFileSync(pathRunningUrls).toString();
+    fs.writeFileSync(pathRunningUrls, runningUrls + '\n' + (pageUrl || url).toString());
     let content = '';
-    if (pageUrl != 'null') {
+    if (pageUrl) {
         content = `${url} - ${blueColor}${pageUrl}${resetColor}`
     }
     else {
@@ -82,6 +85,8 @@ app.post('/', (req, res) => {
                     callback();
                 }
                 urls = urls.filter(item => item !== pageUrl);
+                let runningUrls = fs.readFileSync(pathRunningUrls).toString();
+                fs.writeFileSync(pathRunningUrls, runningUrls.replace((pageUrl || url), '').replace(/\n+/, ''));
                 wss.clients.forEach(function each(client) {
                     if (client.readyState === WebSocket.OPEN) {
                         client.send(null);
@@ -97,5 +102,14 @@ app.get('/mpv-status', (req, res) => {
     res.send(isMpvRunning ? 'running' : 'not running');
 })
 
-app.listen(port, () => console.log(`Example app listening at http://localhost:${port}`));
-
+app.listen(port, () => console.log(`Example app listening at http://localhost:${port}`))
+const runningUrls = fs.readFileSync(pathRunningUrls).toString();
+if (runningUrls) {
+    for (const url of runningUrls.split('\n')) {
+        if (url) {
+            console.log(`Resuming ${url}...`);
+            fs.writeFileSync(pathRunningUrls, runningUrls.replace(url, ''));
+            axios.post('http://localhost:9789/', { url: url });
+        }
+    }
+}
