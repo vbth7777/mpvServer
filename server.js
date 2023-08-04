@@ -47,7 +47,7 @@ app.post('/', (req, res) => {
     const pageUrl = req.body.pageUrl == 'null' ? null : req.body.pageUrl;
     if (urls.includes(pageUrl || url)) {
         // console.log('Duplicate url: ', pageUrl || url)
-        res.send('Duplicated Url: ', pageUrl || url)
+        res.send('Duplicated Url: ' + pageUrl || url)
         return;
     }
     urls.push(pageUrl || url);
