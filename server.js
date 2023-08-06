@@ -57,6 +57,7 @@ app.post('/', (req, res) => {
 
     const runningUrls = fs.readFileSync(pathRunningUrls).toString();
     fs.writeFileSync(pathRunningUrls, urls.join('\n'));
+    sendToClient(JSON.stringify({ url: pageUrl || url }))
     // fs.writeFileSync(pathRunningUrls, runningUrls + '\n' + (pageUrl || url).toString());
     let content = '';
     if (pageUrl) {
@@ -91,21 +92,24 @@ app.post('/', (req, res) => {
                     console.log(`Stdout: ${stdout}`);
                     callback();
                 }
+                sendToClient(JSON.stringify({ isContinue: true, url: pageUrl || url }));
                 urls = urls.filter(item => item != (pageUrl || url))
                 let runningUrls = fs.readFileSync(pathRunningUrls).toString();
                 // fs.writeFileSync(pathRunningUrls, runningUrls.replace((pageUrl || url), '').replace(/\n+/, ''));
                 fs.writeFileSync(pathRunningUrls, urls.join('\n'));
-                wss.clients.forEach(function each(client) {
-                    if (client.readyState === WebSocket.OPEN) {
-                        client.send(null);
-                    }
-                });
             });
         }
         execMpv();
     });
     res.sendStatus(200);
 });
+function sendToClient(content) {
+    wss.clients.forEach(function each(client) {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(content);
+        }
+    });
+}
 app.get('/mpv-status', (req, res) => {
     res.send(isMpvRunning ? 'running' : 'not running');
 })
