@@ -4,7 +4,7 @@ This is a mini tool that allows you to interact with MPV in your terminal throug
 
 ## Features:
 
-- Provides a local web server (you can use Localtunnel).
+- Provides a local web server with port 9789
 
 - Allows you to run MPV command lines in your terminal by making POST requests.
 
