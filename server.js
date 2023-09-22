@@ -74,7 +74,7 @@ app.post('/', (req, res) => {
         console.log(`${greenColor}Executing mpv ${resetColor}(${content})...`);
         let countError = 0;
         const execMpv = function() {
-            exec(`mpv "${url}" --fs`, (error, stdout, stderr) => {
+            exec(`mpv "${url}" --fs --ytdl-format='bestvideo[height<=?2440]+bestaudio/best' --pause`, (error, stdout, stderr) => {
                 isMpvRunning = false;
                 if (error) {
                     console.log(`Error: ${error.message}`);
@@ -118,7 +118,7 @@ app.get('/running-urls', (req, res) => {
 })
 
 
-app.listen(port, () => console.log(`Example app listening at http://localhost:${port}`))
+app.listen(port, () => console.log(`App listening at http://localhost:${port}`))
 if (!fs.existsSync(pathRunningUrls)) {
     fs.writeFileSync(pathRunningUrls, '');
 }
