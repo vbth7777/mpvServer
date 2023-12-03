@@ -13,6 +13,7 @@ const app = express();
 const port = 9789;
 const commandQueue = async.queue((task, callback) => task(callback));
 const pathRunningUrls = path.join(__dirname, 'running-urls.txt');
+let currentPlayingUrl = '';
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.urlencoded({ extended: true }));
@@ -47,52 +48,57 @@ async function getVideoUrl(url, accessToken) {
     const id = getID(url);
     if (!id)
         return null;
-    return await getJSON(`https://api.iwara.tv/video/${id}`, async (status, res) => {
-        if (status) {
-            console.log('Error: ', status);
-            return;
-        }
-        if (res.message && (res?.message?.trim()?.toLowerCase()?.includes('notfound') || res?.message?.trim()?.toLowerCase()?.includes('private'))) {
-            console.log(res.message + ' for ' + id)
-            return;
-        }
-        else if (res.message) {
-            console.log(res.message)
-            return;
-        }
-        if (res.embedUrl && !res.fileUrl) {
-            return res.embedUrl;
-        }
-        const fileUrl = res.fileUrl;
-        const fileId = getFileId(fileUrl)
-        if (!fileId || !fileUrl) {
-            console.log('Not found requirement');
-            return;
-        }
-        const vidResolution = [
-            'Source',
-            '540p',
-            '360p'
-        ]
-
-        // console.log((fileId + '_' + getExpire(fileUrl) + '_5nFp9kmbNnHdAFhaqMvt'))
-        return await getJSON(fileUrl, (status2, res2) => {
-            const json = res2;
-            // console.log(json)
-            let i = json.length - 1;
-            for (let j = 0; j < json.length; j++) {
-                if (vidResolution[0].toLowerCase().indexOf(json[j].name.toLowerCase()) != -1) {
-                    i = j;
-                    break;
-                }
+    try {
+        return await getJSON(`https://api.iwara.tv/video/${id}`, async (status, res) => {
+            if (status) {
+                console.log('Error: ', status);
+                return;
             }
-            const uri = 'https:' + json[i].src.download;
-            return uri
-        }, {
-            'x-version': convertToSHA1(fileId + '_' + getExpire(fileUrl) + '_5nFp9kmbNnHdAFhaqMvt'),
-            "Authorization": "Bearer " + accessToken
+            if (res.message && (res?.message?.trim()?.toLowerCase()?.includes('notfound') || res?.message?.trim()?.toLowerCase()?.includes('private'))) {
+                console.log(res.message + ' for ' + id)
+                return;
+            }
+            else if (res.message) {
+                console.log(res.message)
+                return;
+            }
+            if (res.embedUrl && !res.fileUrl) {
+                return res.embedUrl;
+            }
+            const fileUrl = res.fileUrl;
+            const fileId = getFileId(fileUrl)
+            if (!fileId || !fileUrl) {
+                console.log('Not found requirement');
+                return;
+            }
+            const vidResolution = [
+                'Source',
+                '540p',
+                '360p'
+            ]
+
+            // console.log((fileId + '_' + getExpire(fileUrl) + '_5nFp9kmbNnHdAFhaqMvt'))
+            return await getJSON(fileUrl, (status2, res2) => {
+                const json = res2;
+                // console.log(json)
+                let i = json.length - 1;
+                for (let j = 0; j < json.length; j++) {
+                    if (vidResolution[0].toLowerCase().indexOf(json[j].name.toLowerCase()) != -1) {
+                        i = j;
+                        break;
+                    }
+                }
+                const uri = 'https:' + json[i].src.download;
+                return uri
+            }, {
+                'x-version': convertToSHA1(fileId + '_' + getExpire(fileUrl) + '_5nFp9kmbNnHdAFhaqMvt'),
+                "Authorization": "Bearer " + accessToken
+            })
         })
-    })
+    }
+    catch (ex) {
+        console.log(ex)
+    }
 
 }
 //WebSocket
@@ -120,15 +126,23 @@ const greenColor = '\x1b[32m'; // ANSI escape sequence for green color
 const blueColor = '\x1b[34m'; // ANSI escape sequence for green color
 const resetColor = '\x1b[0m'; // ANSI escape sequence to reset color
 let urls = [];
-
+app.post('/async-run', (req, res) => {
+    const url = req.body.url;
+    if (url)
+        exec(`mpv "${url}" --fs --ytdl-format='bestvideo[height<=?2440]+bestaudio/best' --pause`)
+    res.sendStatus(200);
+})
 app.post('/', (req, res) => {
     const url = req.body.url;
     const token = req.body.accessToken;
-    const pageUrl = req.body.pageUrl == 'null' ? null : req.body.pageUrl;
+    let pageUrl = req.body.pageUrl == 'null' ? null : req.body.pageUrl;
     if (urls.includes(pageUrl || url)) {
         // console.log('Duplicate url: ', pageUrl || url)
         res.send('Duplicated Url: ' + pageUrl || url)
         return;
+    }
+    if (url.match(/https?:\/\/(www)?\.iwara\.tv/)) {
+        pageUrl = url;
     }
     urls.push(pageUrl || url);
     if (!fs.existsSync(pathRunningUrls)) {
@@ -140,12 +154,8 @@ app.post('/', (req, res) => {
     sendToClient(JSON.stringify({ url: pageUrl || url }))
     // fs.writeFileSync(pathRunningUrls, runningUrls + '\n' + (pageUrl || url).toString());
     let content = '';
-    if (pageUrl) {
-        content = `${url} - ${blueColor}${pageUrl}${resetColor}`
-    }
-    else {
-        content = `${url}`
-    }
+    let pageUrlColor = `${blueColor}${pageUrl}${resetColor}`
+    content = `${url}${pageUrl ? ' - ' + pageUrlColor : ''}}`
     console.log(`${greenColor}Received request to open mpv ${resetColor}(${content})...`);
     isMpvRunning = true
 
@@ -154,11 +164,13 @@ app.post('/', (req, res) => {
         let countError = 0;
         const execMpv = async function() {
             let execUrl = url;
-            if (url.includes('iwara.tv')) {
+            currentPlayingUrl = url;
+            if (url.match(/https?:\/\/(www)?\.iwara\.tv/)) {
                 execUrl = await getVideoUrl(url, token);
             }
-            console.log(`${greenColor}Executing mpv ${resetColor}(${execUrl})...`);
+            console.log(`${greenColor}Executing mpv ${resetColor}(${execUrl}${pageUrl ? ' - ' + pageUrlColor : ''})...`);
             exec(`mpv "${execUrl}" --fs --ytdl-format='bestvideo[height<=?2440]+bestaudio/best' --pause`, (error, stdout, stderr) => {
+                currentPlayingUrl = '';
                 isMpvRunning = false;
                 if (error) {
                     console.log(`Error: ${error.message}`);
@@ -199,6 +211,9 @@ app.get('/mpv-status', (req, res) => {
 })
 app.get('/running-urls', (req, res) => {
     res.send(urls)
+})
+app.get('/playing-url', (req, res) => {
+    res.send(currentPlayingUrl)
 })
 
 
