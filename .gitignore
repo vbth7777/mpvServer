@@ -1,2 +1,3 @@
 ./node_modules
-./*.txt
+./running-urls.txt
+./running-urls2.txt
