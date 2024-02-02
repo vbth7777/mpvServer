@@ -155,7 +155,7 @@ app.post('/', (req, res) => {
     // fs.writeFileSync(pathRunningUrls, runningUrls + '\n' + (pageUrl || url).toString());
     let content = '';
     let pageUrlColor = `${blueColor}${pageUrl}${resetColor}`
-    content = `${url}${pageUrl ? ' - ' + pageUrlColor : ''}}`
+    content = `${url}${pageUrl ? ' - ' + pageUrlColor : ''}`
     console.log(`${greenColor}Received request to open mpv ${resetColor}(${content})...`);
     isMpvRunning = true
 
