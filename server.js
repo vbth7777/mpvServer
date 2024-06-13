@@ -176,7 +176,7 @@ app.post("/", (req, res) => {
   commandQueue.push((callback) => {
     isMpvRunning = true;
     let countError = 0;
-    const execMpv = async function () {
+    const execMpv = async function() {
       let execUrl = url;
       currentPlayingUrl = url;
       if (url.match(/https?:\/\/(www)?\.iwara\.tv/)) {
@@ -187,7 +187,7 @@ app.post("/", (req, res) => {
       );
       console.log("Current playing url: ", currentPlayingUrl);
       exec(
-        `mpv "${execUrl}" --fs --ytdl-format='bestvideo[height<=?2440]+bestaudio/best' --pause`,
+        `mpv "${execUrl}" --fs --ytdl-format="bestvideo[height<=?2440]+bestaudio/best" --pause`,
         (error, stdout, stderr) => {
           previousUrl = currentPlayingUrl;
           currentPlayingUrl = "";
