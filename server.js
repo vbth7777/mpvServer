@@ -140,7 +140,7 @@ app.post("/async-run", (req, res) => {
   const url = req.body.url;
   if (url)
     exec(
-      `mpv "${url}" --fs --ytdl-format='bestvideo[height<=?2440]+bestaudio/best' --pause`,
+      `mpv "${url}" --fs --ytdl-format="bestvideo[height<=?2440]+bestaudio/best" --pause`,
     );
   res.sendStatus(200);
 });
