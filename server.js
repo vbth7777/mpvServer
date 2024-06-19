@@ -223,10 +223,10 @@ app.post("/", (req, res) => {
               callback(error);
             }
           } else if (stderr) {
-            console.log(`Stderr: ${stderr}`);
+            // console.log(`Stderr: ${stderr}`);
             callback(stderr);
           } else {
-            console.log(`Stdout: ${stdout}`);
+            // console.log(`Stdout: ${stdout}`);
             callback();
           }
           sendToClient(
