@@ -13,12 +13,18 @@ const app = express();
 const port = 9789;
 const commandQueue = async.queue((task, callback) => task(callback));
 const pathRunningUrls = path.join(__dirname, "running-urls.txt");
+let isReload = false;
 let currentPlayingUrl = "";
 let previousUrl = "";
 
 app.use(express.static(path.join(__dirname, "public")));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
 function convertToSHA1(str) {
   const shasum = crypto.createHash("sha1");
   shasum.update(str);
@@ -106,6 +112,9 @@ async function getVideoUrl(url, accessToken) {
           },
         );
       },
+      {
+        Authorization: "Bearer " + accessToken,
+      },
     );
   } catch (ex) {
     console.log(ex);
@@ -135,6 +144,8 @@ let isMpvRunning = false;
 const greenColor = "\x1b[32m"; // ANSI escape sequence for green color
 const blueColor = "\x1b[34m"; // ANSI escape sequence for green color
 const resetColor = "\x1b[0m"; // ANSI escape sequence to reset color
+let token = "";
+let pauseRequest = true;
 let urls = [];
 app.post("/async-run", (req, res) => {
   const url = req.body.url;
@@ -146,7 +157,7 @@ app.post("/async-run", (req, res) => {
 });
 app.post("/", (req, res) => {
   const url = req.body.url;
-  const token = req.body.accessToken;
+  token = req.body.accessToken;
   let pageUrl = req.body.pageUrl == "null" ? null : req.body.pageUrl;
   if (urls.includes(pageUrl || url)) {
     // console.log('Duplicate url: ', pageUrl || url)
@@ -176,7 +187,7 @@ app.post("/", (req, res) => {
   commandQueue.push((callback) => {
     isMpvRunning = true;
     let countError = 0;
-    const execMpv = async function() {
+    const execMpv = async function () {
       let execUrl = url;
       currentPlayingUrl = url;
       if (url.match(/https?:\/\/(www)?\.iwara\.tv/)) {
@@ -188,14 +199,25 @@ app.post("/", (req, res) => {
       console.log("Current playing url: ", currentPlayingUrl);
       exec(
         `mpv "${execUrl}" --fs --ytdl-format="bestvideo[height<=?2440]+bestaudio/best" --pause`,
-        (error, stdout, stderr) => {
+        async (error, stdout, stderr) => {
           previousUrl = currentPlayingUrl;
           currentPlayingUrl = "";
           isMpvRunning = false;
-          if (error) {
-            console.log(`Error: ${error.message}`);
+          if (isReload) {
+            isReload = false;
+            execMpv();
+          } else if (error) {
+            // if (isReload) {
+            //   console.log(`Reloading...`);
+            // } else {
+            console.log(`Error: ${error.message.split("\n")[0]}`);
             console.log(`Try requesting again`);
+            // }
             if (countError++ < 2) {
+              // if (isReload) {
+              //   countError = 0;
+              //   isReload = false;
+              // }
               execMpv();
             } else {
               callback(error);
@@ -239,6 +261,10 @@ app.get("/playing-url", (req, res) => {
 });
 app.get("/previous-url", (req, res) => {
   res.send(previousUrl);
+});
+app.post("/reload", (req, res) => {
+  isReload = true;
+  console.log("Reloading...");
 });
 
 app.listen(port, () =>
