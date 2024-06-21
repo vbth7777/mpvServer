@@ -1,3 +1,5 @@
+process.stdin.resume();
+process.stdin.setEncoding("utf8");
 const WebSocket = require("ws");
 const { WebSocketServer } = require("ws");
 
@@ -20,6 +22,30 @@ let previousUrl = "";
 app.use(express.static(path.join(__dirname, "public")));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+function output(content) {
+  process.stdout.write(content);
+  if (arguments.length > 1) {
+    for (let i = 1; i < arguments.length; i++) {
+      process.stdout.write(arguments[i]);
+    }
+  }
+  process.stdout.write("\n");
+}
+
+function outputRealtime(content) {
+  process.stdout.write("\r" + content);
+  if (arguments.length > 1) {
+    for (let i = 1; i < arguments.length; i++) {
+      process.stdout.write(arguments[i]);
+    }
+  }
+}
+function clearPreviousLine(count) {
+  for (let i = 0; i < count; i++) {
+    process.stdout.write("\r\x1b[k");
+  }
+}
+
 function sleep(ms) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
@@ -39,8 +65,8 @@ function getJSON(url, callback, headers) {
       return callback(null, res.data);
     })
     .catch((err) => {
-      console.log("error: " + url);
-      console.log(err);
+      output("error: " + url);
+      output(err);
       return null;
     });
 }
@@ -62,7 +88,7 @@ async function getVideoUrl(url, accessToken) {
       `https://api.iwara.tv/video/${id}`,
       async (status, res) => {
         if (status) {
-          console.log("Error: ", status);
+          output("Error: ", status);
           return;
         }
         if (
@@ -70,10 +96,10 @@ async function getVideoUrl(url, accessToken) {
           (res?.message?.trim()?.toLowerCase()?.includes("notfound") ||
             res?.message?.trim()?.toLowerCase()?.includes("private"))
         ) {
-          console.log(res.message + " for " + id);
+          output(res.message + " for " + id);
           return;
         } else if (res.message) {
-          console.log(res.message);
+          output(res.message);
           return;
         }
         if (res.embedUrl && !res.fileUrl) {
@@ -82,12 +108,12 @@ async function getVideoUrl(url, accessToken) {
         const fileUrl = res.fileUrl;
         const fileId = getFileId(fileUrl);
         if (!fileId || !fileUrl) {
-          console.log("Not found requirement");
+          output("Not found requirement");
           return;
         }
         // const vidResolution = ["Source", "540", "360"];
 
-        // console.log((fileId + '_' + getExpire(fileUrl) + '_5nFp9kmbNnHdAFhaqMvt'))
+        // output((fileId + '_' + getExpire(fileUrl) + '_5nFp9kmbNnHdAFhaqMvt'))
         return await getJSON(
           fileUrl,
           (status2, res2) => {
@@ -117,7 +143,7 @@ async function getVideoUrl(url, accessToken) {
       },
     );
   } catch (ex) {
-    console.log(ex);
+    output(ex);
   }
 }
 //WebSocket
@@ -128,7 +154,7 @@ wss.on("connection", function connection(ws) {
   ws.on("error", console.error);
 
   ws.on("message", function message(data, isBinary) {
-    console.log("Connected to client");
+    output("Connected to client");
     // wss.clients.forEach(function each(client) {
     //     if (client.readyState === WebSocket.OPEN) {
     //         client.send(isMpvRunning)
@@ -136,7 +162,7 @@ wss.on("connection", function connection(ws) {
     // });
   });
   ws.on("close", function close() {
-    console.log("Client closed connection");
+    output("Client closed connection");
   });
 });
 
@@ -160,7 +186,7 @@ app.post("/", (req, res) => {
   token = req.body.accessToken;
   let pageUrl = req.body.pageUrl == "null" ? null : req.body.pageUrl;
   if (urls.includes(pageUrl || url)) {
-    // console.log('Duplicate url: ', pageUrl || url)
+    // output('Duplicate url: ', pageUrl || url)
     res.send("Duplicated Url: " + pageUrl || url);
     return;
   }
@@ -179,7 +205,7 @@ app.post("/", (req, res) => {
   let content = "";
   let pageUrlColor = `${blueColor}${pageUrl}${resetColor}`;
   content = `${url}${pageUrl ? " - " + pageUrlColor : ""}`;
-  console.log(
+  output(
     `${greenColor}Received request to open mpv ${resetColor}(${content})...`,
   );
   isMpvRunning = true;
@@ -187,17 +213,18 @@ app.post("/", (req, res) => {
   commandQueue.push((callback) => {
     isMpvRunning = true;
     let countError = 0;
-    const execMpv = async function () {
+    const execMpv = async function() {
       let execUrl = url;
       currentPlayingUrl = url;
       if (url.match(/https?:\/\/(www)?\.iwara\.tv/)) {
         execUrl = await getVideoUrl(url, token);
       }
-      console.log(
+      output(
         `${greenColor}Executing mpv ${resetColor}(${execUrl}${pageUrl ? " - " + pageUrlColor : ""})...`,
       );
-      console.log("Current playing url: ", currentPlayingUrl);
-      exec(
+      output("Current playing url: ", currentPlayingUrl);
+      let timeCount = 0;
+      const process = exec(
         `mpv "${execUrl}" --fs --ytdl-format="bestvideo[height<=?2440]+bestaudio/best" --pause`,
         async (error, stdout, stderr) => {
           previousUrl = currentPlayingUrl;
@@ -208,25 +235,30 @@ app.post("/", (req, res) => {
             execMpv();
           } else if (error) {
             // if (isReload) {
-            //   console.log(`Reloading...`);
+            //   output(`Reloading...`);
             // } else {
-            console.log(`Error: ${error.message.split("\n")[0]}`);
-            console.log(`Try requesting again`);
-            // }
-            if (countError++ < 2) {
-              // if (isReload) {
-              //   countError = 0;
-              //   isReload = false;
-              // }
-              execMpv();
+            if (!process.killed) {
+              output(`Error: ${error.message.split("\n")[0]}`);
+              output(`Try requesting again`);
+              if (countError++ < 2) {
+                // if (isReload) {
+                //   countError = 0;
+                //   isReload = false;
+                // }
+                execMpv();
+              } else {
+                callback(error);
+              }
             } else {
-              callback(error);
+              output("Auto reloading...");
+              execMpv();
             }
+            // }
           } else if (stderr) {
-            // console.log(`Stderr: ${stderr}`);
+            // output(`Stderr: ${stderr}`);
             callback(stderr);
           } else {
-            // console.log(`Stdout: ${stdout}`);
+            // output(`Stdout: ${stdout}`);
             callback();
           }
           sendToClient(
@@ -238,6 +270,26 @@ app.post("/", (req, res) => {
           fs.writeFileSync(pathRunningUrls, urls.join("\n"));
         },
       );
+      let timeReloaded = 5;
+      let isSmooth = false;
+      process.stdout.on("data", (data) => {
+        if (data.includes("[gpu]")) {
+          isSmooth = true;
+        } else if (data) {
+          timeReloaded = 15;
+        }
+      });
+      while (timeCount < timeReloaded && !isSmooth) {
+        await sleep(1000);
+        timeCount++;
+        outputRealtime(`Elapsed: ${timeCount} Secs`);
+      }
+      outputRealtime("");
+      clearPreviousLine();
+      if (!isSmooth) {
+        process.kill();
+        //   execMpv();
+      }
     };
     execMpv();
   });
@@ -264,12 +316,10 @@ app.get("/previous-url", (req, res) => {
 });
 app.post("/reload", (req, res) => {
   isReload = true;
-  console.log("Reloading...");
+  output("Reloading...");
 });
 
-app.listen(port, () =>
-  console.log(`App listening at http://localhost:${port}`),
-);
+app.listen(port, () => output(`App listening at http://localhost:${port}`));
 if (!fs.existsSync(pathRunningUrls)) {
   fs.writeFileSync(pathRunningUrls, "");
 }
@@ -279,7 +329,7 @@ if (runningUrls) {
   urls = urls.filter((url, index) => urls.indexOf(url) === index);
   for (const url of urls) {
     if (url) {
-      console.log(`Resuming ${url}...`);
+      output(`Resuming ${url}...`);
       fs.writeFileSync(pathRunningUrls, runningUrls.replace(url, ""));
       axios.post("http://localhost:9789/", { url: url });
     }
