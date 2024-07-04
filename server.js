@@ -18,6 +18,11 @@ const pathRunningUrls = path.join(__dirname, "running-urls.txt");
 let isReload = false;
 let currentPlayingUrl = "";
 let previousUrl = "";
+//import config.priv.js file
+let envToken = "";
+try {
+  envToken = require("./config.priv").token;
+} catch { }
 
 app.use(express.static(path.join(__dirname, "public")));
 app.use(express.urlencoded({ extended: true }));
@@ -64,7 +69,7 @@ function getJSON(url, callback, headers) {
     .then((res) => {
       return callback(null, res.data);
     })
-    .catch((err) => {
+    .catch((err, data) => {
       output("error: " + url);
       output(err);
       return null;
@@ -213,11 +218,13 @@ app.post("/", (req, res) => {
   commandQueue.push((callback) => {
     isMpvRunning = true;
     let countError = 0;
-    const execMpv = async function() {
+    const execMpv = async function(autoReloadMode = true) {
       let execUrl = url;
       currentPlayingUrl = url;
       if (url.match(/https?:\/\/(www)?\.iwara\.tv/)) {
         execUrl = await getVideoUrl(url, token);
+      } else {
+        autoReloadMode = false;
       }
       output(
         `${greenColor}Executing mpv ${resetColor}(${execUrl}${pageUrl ? " - " + pageUrlColor : ""})...`,
@@ -230,6 +237,7 @@ app.post("/", (req, res) => {
           previousUrl = currentPlayingUrl;
           currentPlayingUrl = "";
           isMpvRunning = false;
+          let isAutoReload = false;
           if (isReload) {
             isReload = false;
             execMpv();
@@ -251,6 +259,7 @@ app.post("/", (req, res) => {
               }
             } else {
               output("Auto reloading...");
+              isAutoReload = true;
               execMpv();
             }
             // }
@@ -261,16 +270,17 @@ app.post("/", (req, res) => {
             // output(`Stdout: ${stdout}`);
             callback();
           }
+          if (isAutoReload) return;
+          urls = urls.filter((item) => item != (pageUrl || url));
           sendToClient(
             JSON.stringify({ isContinue: true, url: pageUrl || url }),
           );
-          urls = urls.filter((item) => item != (pageUrl || url));
           let runningUrls = fs.readFileSync(pathRunningUrls).toString();
           // fs.writeFileSync(pathRunningUrls, runningUrls.replace((pageUrl || url), '').replace(/\n+/, ''));
           fs.writeFileSync(pathRunningUrls, urls.join("\n"));
         },
       );
-      let timeReloaded = 5;
+      let timeReloaded = 7;
       let isSmooth = false;
       process.stdout.on("data", (data) => {
         if (data.includes("[gpu]")) {
@@ -286,7 +296,7 @@ app.post("/", (req, res) => {
       }
       outputRealtime("");
       clearPreviousLine();
-      if (!isSmooth) {
+      if (!isSmooth && autoReloadMode) {
         process.kill();
         //   execMpv();
       }
@@ -327,11 +337,12 @@ const runningUrls = fs.readFileSync(pathRunningUrls).toString();
 if (runningUrls) {
   let urls = runningUrls.split("\n");
   urls = urls.filter((url, index) => urls.indexOf(url) === index);
+  const token = envToken || "";
   for (const url of urls) {
     if (url) {
       output(`Resuming ${url}...`);
       fs.writeFileSync(pathRunningUrls, runningUrls.replace(url, ""));
-      axios.post("http://localhost:9789/", { url: url });
+      axios.post("http://localhost:9789/", { url: url, accessToken: token });
     }
   }
 }
