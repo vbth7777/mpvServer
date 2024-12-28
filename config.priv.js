@@ -1,0 +1,5 @@
+//declare token
+module.exports = {
+  token:
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImYyMjFjOTY1LWEwOWEtNDdmMC1hNjdhLTdkNTdhZjAxZTQxZiIsInR5cGUiOiJyZWZyZXNoX3Rva2VuIiwiaXNzIjoiaXdhcmEiLCJpYXQiOjE3MTg1NTA5MzEsImV4cCI6MTcyMTE0MjkzMX0.ug01BOmA8aoO7wFdB0yOJ_cvObaIqvElHQZ2GWLQ2WI",
+};
