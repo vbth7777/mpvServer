@@ -15,6 +15,7 @@ const app = express();
 const port = 9789;
 const commandQueue = async.queue((task, callback) => task(callback));
 const pathRunningUrls = path.join(__dirname, "running-urls.txt");
+const VIDEO_QUEUE_MODE = false;
 let isReload = false;
 let currentPlayingUrl = "";
 let previousUrl = "";
@@ -196,6 +197,7 @@ app.post("/async-run", (req, res) => {
 app.post("/", (req, res) => {
   const url = req.body.url;
   token = req.body.accessToken;
+  const isLoadFromHistory = req.body.isLoadFromHistory;
   let pageUrl = req.body.pageUrl == "null" ? null : req.body.pageUrl;
   if (urls.includes(pageUrl || url)) {
     // output('Duplicate url: ', pageUrl || url)
@@ -222,7 +224,7 @@ app.post("/", (req, res) => {
   );
   isMpvRunning = true;
 
-  commandQueue.push((callback) => {
+  const command = (callback) => {
     isMpvRunning = true;
     let countError = 0;
     const execMpv = async function (autoReloadMode = true) {
@@ -309,7 +311,20 @@ app.post("/", (req, res) => {
       }
     };
     execMpv();
-  });
+  };
+  // Prority new request
+  if (isLoadFromHistory) {
+    commandQueue.push(command);
+    process.stdout.write("\r\x1b[k---From History---\r\n");
+  } else {
+    if (VIDEO_QUEUE_MODE) {
+      commandQueue.push(command);
+    } else {
+      commandQueue.unshift(command);
+    }
+  }
+  // Prority by queue
+  // commandQueue.push(command);
   res.sendStatus(200);
 });
 function sendToClient(content) {
@@ -349,7 +364,11 @@ if (runningUrls) {
     if (url) {
       output(`Resuming ${url}...`);
       fs.writeFileSync(pathRunningUrls, runningUrls.replace(url, ""));
-      axios.post("http://localhost:9789/", { url: url, accessToken: token });
+      axios.post("http://localhost:9789/", {
+        url: url,
+        accessToken: token,
+        isLoadFromHistory: !VIDEO_QUEUE_MODE,
+      });
     }
   }
 }
