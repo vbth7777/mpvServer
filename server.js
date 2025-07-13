@@ -24,7 +24,21 @@ let envToken = "";
 try {
   envToken = require("./config.priv").token;
 } catch {}
+const socketServer = new WebSocketServer({ port: 9791 });
+function waitForConnection(server) {
+  if (server.clients.size > 0) {
+    const existingClient = server.clients.values().next().value;
+    return Promise.resolve(existingClient);
+  } else {
+    console.log("No clients found. Waiting for a connection...");
 
+    return new Promise((resolve) => {
+      server.once("connection", (ws) => {
+        resolve(ws);
+      });
+    });
+  }
+}
 app.use(express.static(path.join(__dirname, "public")));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
@@ -62,21 +76,66 @@ function convertToSHA1(str) {
   shasum.update(str);
   return shasum.digest("hex");
 }
-function getJSON(url, callback, headers) {
-  return axios
-    .get(url, {
-      headers: headers,
-    })
-    .then((res) => {
-      return callback(null, res.data);
-    })
-    .catch((err, data) => {
-      output("error: " + url);
-      output(err);
-      return null;
-    });
+async function getJSON(url, callback, headers) {
+  await waitForConnection(socketServer);
+  for (let client of socketServer.clients) {
+    if (client.readyState === WebSocket.OPEN) {
+      const reply = JSON.parse(
+        await askClientAndWaitForReply(client, url, headers),
+      );
+      if (reply) {
+        if (reply.error) {
+          if (!callback) {
+            return reply;
+          }
+          return callback(reply.status, reply);
+        }
+        if (!callback) {
+          return reply;
+        }
+        return callback(null, reply);
+      }
+    }
+  }
+  // return axios
+  //   .get(url, {
+  //     headers: headers,
+  //   })
+  //   .then((res) => {
+  //     return callback(null, res.data);
+  //   })
+  //   .catch((err, data) => {
+  //     output("error: " + url);
+  //     output(err);
+  //     return null;
+  //   });
+}
+function askClientAndWaitForReply(ws, messageToSend, headers = {}) {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      output("Waiting for client reply");
+    }, 5000);
+
+    const messageListener = (message) => {
+      clearTimeout(timeout); // ✅ Client replied, so cancel the timeout.
+      ws.removeListener("message", messageListener); // Clean up the listener.
+      resolve(message.toString()); // Resolve the promise with the reply.
+    };
+
+    ws.on("message", messageListener);
+
+    ws.send(JSON.stringify({ url: messageToSend, headers: headers }));
+  });
 }
 async function getVideoUrl(url, accessToken) {
+  // let result = undefined;
+  // for (let client of socketServer.clients) {
+  //   if (client.readyState === WebSocket.OPEN) {
+  //     result = await askClientAndWaitForReply(client, url);
+  //   }
+  // }
+
+  // return result;
   const getID = (url) => {
     return url.match(/video\/([^\/]*)/)[1];
   };
@@ -188,13 +247,15 @@ let urls = [];
 app.post("/async-run", (req, res) => {
   const url = req.body.url;
   if (url) {
+    console.log(url);
     exec(
-      `mpv "${url}" --fs --ytdl-format="bestvideo[height<=?2440]+bestaudio/best" --pause`,
+      `mpv "${url}" --fs --ytdl-format="bestvideo[height<=?2440]+bestaudio/best" --pause `,
     );
   }
   res.sendStatus(200);
 });
-app.post("/", (req, res) => {
+app.post("/", async (req, res) => {
+  await waitForConnection(socketServer);
   const url = req.body.url;
   token = req.body.accessToken;
   const isLoadFromHistory = req.body.isLoadFromHistory;
@@ -241,7 +302,7 @@ app.post("/", (req, res) => {
       output("Current playing url: ", currentPlayingUrl);
       let timeCount = 0;
       const process = exec(
-        `mpv "${execUrl}" --fs --ytdl-format="bestvideo[height<=?2440]+bestaudio/best" --pause`,
+        `mpv "${execUrl}" --fs --ytdl-format="bestvideo[height<=?2440]+bestaudio/best" --pause `,
         async (error, stdout, stderr) => {
           previousUrl = currentPlayingUrl;
           currentPlayingUrl = "";
@@ -334,6 +395,48 @@ function sendToClient(content) {
     }
   });
 }
+
+app.get("/user", async (req, res) => {
+  await waitForConnection(socketServer);
+  const profileSlug = req.query.profileSlug;
+  try {
+    const user = await getJSON(`https://api.iwara.tv/profile/${profileSlug}`);
+    const idUser = user.user.id;
+    const videoDetails = [];
+    let page = 0;
+    while (true) {
+      const videos = await getJSON(
+        `https://api.iwara.tv/videos?sort=date&page=${page}&user=${idUser}`,
+      );
+      if (videos.results.length === 0) {
+        break;
+      }
+      videos.results.forEach((video) => {
+        videoDetails.push({
+          id: video.id,
+          title: video.title,
+        });
+      });
+      page++;
+    }
+    res.send(JSON.stringify(videoDetails));
+  } catch (error) {
+    res.status(500).send(error);
+  }
+});
+app.get("/video", async (req, res) => {
+  await waitForConnection(socketServer);
+  const videoId = req.query.id;
+  const accessToken = req.query.accessToken;
+  res.send(
+    JSON.stringify({
+      url: await getVideoUrl(
+        "https://www.iwara.tv/video/" + videoId,
+        accessToken,
+      ),
+    }),
+  );
+});
 app.get("/mpv-status", (req, res) => {
   res.send(isMpvRunning ? "running" : "not running");
 });
@@ -350,6 +453,7 @@ app.post("/reload", (req, res) => {
   isReload = true;
   output("Reloading...");
 });
+app.use(express.static(path.join(__dirname, "public")));
 
 app.listen(port, () => output(`App listening at http://localhost:${port}`));
 if (!fs.existsSync(pathRunningUrls)) {

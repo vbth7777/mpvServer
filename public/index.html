@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Iwara API Response</title>
+  </head>
+  <body>
+    <script>
+      async function convertToSHA1(str) {
+        const buffer = new TextEncoder().encode(str);
+        const hashBuffer = await window.crypto.subtle.digest("SHA-1", buffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+        return hashHex;
+      }
+
+      async function getJSON(url, headers = {}) {
+        try {
+          const response = await fetch(url, {
+            headers: headers,
+          });
+
+          if (!response.ok) {
+            let errorData = {};
+            try {
+              errorData = await response.json();
+            } catch (e) {
+              console.warn("Could not parse error response as JSON.", e);
+            }
+            const errorMessage = `API Error: ${response.status} - ${JSON.stringify(errorData)}`;
+            return await response;
+            //  throw new Error(errorMessage);
+          }
+
+          return await response.json();
+        } catch (error) {
+          console.error("An error occurred:", error.message);
+          return error;
+        }
+      }
+      async function getVideoUrl(url, accessToken) {
+        const getID = (url) => {
+          const match = url.match(/video\/([a-zA-Z0-9]+)/);
+          return match ? match[1] : null;
+        };
+        const getFileId = (url) => {
+          const match = url.match(/file\/.+\?/);
+          return match ? match[0].replace(/file\/|\?/g, "") : null;
+        };
+        const getExpire = (url) => {
+          const match = url.match("expires=([^&]+)");
+          return match ? match[1] : null;
+        };
+
+        const id = getID(url);
+        if (!id) {
+          console.error("Could not find video ID in the URL:", url);
+          return null;
+        }
+
+        try {
+          const videoInfo = await getJSON(`https://api.iwara.tv/video/${id}`, {
+            "content-type": "application/json",
+            referer: "https://www.iwara.tv/",
+            origin: "https://www.iwara.tv",
+            "user-agent": `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36`,
+            Authorization: "Bearer " + accessToken,
+          });
+
+          console.log("Video Info Response:", videoInfo);
+
+          if (videoInfo.message) {
+            const message = videoInfo.message.trim().toLowerCase();
+            if (message.includes("notfound") || message.includes("private")) {
+              console.error(videoInfo.message + " for video ID: " + id);
+            } else {
+              console.error("API Message:", videoInfo.message);
+            }
+            return null;
+          }
+
+          if (videoInfo.embedUrl && !videoInfo.fileUrl) {
+            return videoInfo.embedUrl;
+          }
+
+          const fileUrl = videoInfo.fileUrl;
+          if (!fileUrl) {
+            console.error("File URL not found in the API response.");
+            return null;
+          }
+
+          const fileId = getFileId(fileUrl);
+          const expire = getExpire(fileUrl);
+
+          if (!fileId || !expire) {
+            console.error(
+              "Could not extract fileId or expiration from fileUrl:",
+              fileUrl,
+            );
+            return null;
+          }
+
+          const versionString = `${fileId}_${expire}_5nFp9kmbNnHdAFhaqMvt`;
+          const xVersion = await convertToSHA1(versionString);
+
+          const resolutions = await getJSON(fileUrl, {
+            "content-type": "application/json",
+            referer: "https://www.iwara.tv/",
+            origin: "https://www.iwara.tv",
+            "user-agent": `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36`,
+            "x-version": xVersion,
+            Authorization: "Bearer " + accessToken,
+          });
+
+          const qualityPriority = ["Source", "540", "360"];
+          let bestResolution = null;
+
+          for (const quality of qualityPriority) {
+            const found = resolutions.find((res) => res.name.includes(quality));
+            if (found) {
+              bestResolution = found;
+              break;
+            }
+          }
+
+          if (
+            bestResolution &&
+            bestResolution.src &&
+            bestResolution.src.download
+          ) {
+            const finalUri = "https:" + bestResolution.src.download;
+            console.log("Found video URL:", finalUri);
+            return finalUri;
+          } else {
+            console.error(
+              "Could not find a suitable video resolution in the response.",
+              resolutions,
+            );
+            return null;
+          }
+        } catch (ex) {
+          console.error("An unexpected error occurred in getVideoUrl:", ex);
+          return null;
+        }
+      }
+
+      document.addEventListener("DOMContentLoaded", async () => {
+        let socket;
+        let reconnectTime = 1000;
+        function connect() {
+          socket = new WebSocket("ws://localhost:9791");
+          socket.onopen = () => {
+            console.log("WebSocket connected.");
+          };
+          socket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            const url = data.url;
+            const headers = data.headers;
+            fetch(url, {
+              headers: headers,
+            })
+              .then((res) => res.json())
+              .then((json) => {
+                if (json) {
+                  console.log(json);
+                  socket.send(JSON.stringify(json));
+                }
+              })
+              .catch((e) => {
+                console.log(e.message);
+                socket.send(JSON.stringify(e));
+              });
+            //getVideoUrl(url, null).then((url) => {
+            //if (url) {
+            //socket.send(url);
+            //}
+            //});
+          };
+          socket.onerror = (error) => {
+            console.error("WebSocket error:", error);
+          };
+          socket.onclose = () => {
+            console.log("WebSocket closed.");
+            setTimeout(connect, reconnectTime);
+          };
+        }
+        connect();
+      });
+    </script>
+  </body>
+</html>
