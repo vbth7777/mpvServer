@@ -3,3 +3,4 @@
 ./test.js
 ./config.priv.js
 ./running-urls4.txt
+./.env
