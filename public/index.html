@@ -3,190 +3,141 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>API Response</title>
+    <title>Browser Proxy Client</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --background-color: #1a1a1a;
+        --card-background: #2a2a2a;
+        --text-color: #e0e0e0;
+        --primary-color: #4a90e2;
+        --status-connected: #34c759;
+        --status-disconnected: #ff3b30;
+        --font-family: 'Inter', sans-serif;
+      }
+      body {
+        margin: 0;
+        font-family: var(--font-family);
+        background-color: var(--background-color);
+        color: var(--text-color);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        text-align: center;
+      }
+      .container {
+        max-width: 500px;
+        padding: 2rem;
+      }
+      .card {
+        background-color: var(--card-background);
+        border-radius: 16px;
+        padding: 2.5rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      .status-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin: 0 auto 1.5rem;
+        transition: background-color 0.3s ease;
+      }
+      .status-indicator.connected {
+        background-color: var(--status-connected);
+        box-shadow: 0 0 10px var(--status-connected);
+      }
+      .status-indicator.disconnected {
+        background-color: var(--status-disconnected);
+        box-shadow: 0 0 10px var(--status-disconnected);
+      }
+      h1 {
+        font-weight: 700;
+        font-size: 1.75rem;
+        margin-top: 0;
+        margin-bottom: 0.5rem;
+      }
+      p {
+        font-size: 1rem;
+        line-height: 1.6;
+        opacity: 0.8;
+        margin-top: 0;
+      }
+      #status-text {
+        font-weight: 500;
+        transition: color 0.3s ease;
+      }
+    </style>
   </head>
   <body>
+    <div class="container">
+      <div class="card">
+        <div id="status-indicator" class="status-indicator disconnected"></div>
+        <h1>Browser Proxy</h1>
+        <p id="status-text">This page is the request proxy for the mpvServer application. Keep it open in the background.</p>
+      </div>
+    </div>
     <script>
-      async function convertToSHA1(str) {
-        const buffer = new TextEncoder().encode(str);
-        const hashBuffer = await window.crypto.subtle.digest("SHA-1", buffer);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        const hashHex = hashArray
-          .map((b) => b.toString(16).padStart(2, "0"))
-          .join("");
-        return hashHex;
-      }
-
-      async function getJSON(url, headers = {}) {
-        try {
-          const response = await fetch(url, {
-            headers: headers,
-          });
-
-          if (!response.ok) {
-            let errorData = {};
-            try {
-              errorData = await response.json();
-            } catch (e) {
-              console.warn("Could not parse error response as JSON.", e);
-            }
-            const errorMessage = `API Error: ${response.status} - ${JSON.stringify(errorData)}`;
-            return await response;
-            //  throw new Error(errorMessage);
-          }
-
-          return await response.json();
-        } catch (error) {
-          console.error("An error occurred:", error.message);
-          return error;
-        }
-      }
-      async function getVideoUrl(url, accessToken) {
-        const getID = (url) => {
-          const match = url.match(/video\/([a-zA-Z0-9]+)/);
-          return match ? match[1] : null;
-        };
-        const getFileId = (url) => {
-          const match = url.match(/file\/.+\?/);
-          return match ? match[0].replace(/file\/|\?/g, "") : null;
-        };
-        const getExpire = (url) => {
-          const match = url.match("expires=([^&]+)");
-          return match ? match[1] : null;
-        };
-
-        const id = getID(url);
-        if (!id) {
-          console.error("Could not find video ID in the URL:", url);
-          return null;
-        }
-
-        try {
-          const videoInfo = await getJSON(`https://api.iwara.tv/video/${id}`, {
-            "content-type": "application/json",
-            referer: "https://www.iwara.tv/",
-            origin: "https://www.iwara.tv",
-            "user-agent": `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36`,
-            Authorization: "Bearer " + accessToken,
-          });
-
-          console.log("Video Info Response:", videoInfo);
-
-          if (videoInfo.message) {
-            const message = videoInfo.message.trim().toLowerCase();
-            if (message.includes("notfound") || message.includes("private")) {
-              console.error(videoInfo.message + " for video ID: " + id);
-            } else {
-              console.error("API Message:", videoInfo.message);
-            }
-            return null;
-          }
-
-          if (videoInfo.embedUrl && !videoInfo.fileUrl) {
-            return videoInfo.embedUrl;
-          }
-
-          const fileUrl = videoInfo.fileUrl;
-          if (!fileUrl) {
-            console.error("File URL not found in the API response.");
-            return null;
-          }
-
-          const fileId = getFileId(fileUrl);
-          const expire = getExpire(fileUrl);
-
-          if (!fileId || !expire) {
-            console.error(
-              "Could not extract fileId or expiration from fileUrl:",
-              fileUrl,
-            );
-            return null;
-          }
-
-          const versionString = `${fileId}_${expire}_5nFp9kmbNnHdAFhaqMvt`;
-          const xVersion = await convertToSHA1(versionString);
-
-          const resolutions = await getJSON(fileUrl, {
-            "content-type": "application/json",
-            referer: "https://www.iwara.tv/",
-            origin: "https://www.iwara.tv",
-            "user-agent": `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36`,
-            "x-version": xVersion,
-            Authorization: "Bearer " + accessToken,
-          });
-
-          const qualityPriority = ["Source", "540", "360"];
-          let bestResolution = null;
-
-          for (const quality of qualityPriority) {
-            const found = resolutions.find((res) => res.name.includes(quality));
-            if (found) {
-              bestResolution = found;
-              break;
-            }
-          }
-
-          if (
-            bestResolution &&
-            bestResolution.src &&
-            bestResolution.src.download
-          ) {
-            const finalUri = "https:" + bestResolution.src.download;
-            console.log("Found video URL:", finalUri);
-            return finalUri;
-          } else {
-            console.error(
-              "Could not find a suitable video resolution in the response.",
-              resolutions,
-            );
-            return null;
-          }
-        } catch (ex) {
-          console.error("An unexpected error occurred in getVideoUrl:", ex);
-          return null;
-        }
-      }
-
-      document.addEventListener("DOMContentLoaded", async () => {
+      document.addEventListener("DOMContentLoaded", () => {
+        const statusIndicator = document.getElementById('status-indicator');
+        const statusText = document.getElementById('status-text');
         let socket;
-        let reconnectTime = 1000;
+        const reconnectTime = 3000;
+
         function connect() {
           socket = new WebSocket("ws://localhost:9791");
+
           socket.onopen = () => {
-            console.log("WebSocket connected.");
+            console.log("Proxy WebSocket connected to server.");
+            statusIndicator.classList.remove('disconnected');
+            statusIndicator.classList.add('connected');
+            statusText.textContent = 'Connection established. Ready to proxy requests.';
           };
-          socket.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            const url = data.url;
-            const headers = data.headers;
-            fetch(url, {
-              headers: headers,
-            })
-              .then((res) => res.json())
-              .then((json) => {
-                if (json) {
-                  console.log(json);
-                  socket.send(JSON.stringify(json));
-                }
-              })
-              .catch((e) => {
-                console.log(e.message);
-                socket.send(JSON.stringify(e));
-              });
-            //getVideoUrl(url, null).then((url) => {
-            //if (url) {
-            //socket.send(url);
-            //}
-            //});
+
+          socket.onmessage = async (event) => {
+            let request;
+            try {
+              request = JSON.parse(event.data);
+            } catch (e) {
+              console.error("Failed to parse message from server:", event.data);
+              return;
+            }
+
+            const { url, headers } = request;
+            if (!url) {
+              console.error("No URL provided in message from server.");
+              return;
+            }
+
+            try {
+              const response = await fetch(url, { headers });
+              const data = await response.json();
+              socket.send(JSON.stringify(data));
+            } catch (error) {
+              console.error(`Failed to fetch ${url}:`, error);
+              socket.send(JSON.stringify({
+                error: error.message,
+                status: 'FETCH_ERROR'
+              }));
+            }
           };
+
           socket.onerror = (error) => {
-            console.error("WebSocket error:", error);
+            console.error("Proxy WebSocket error:", error);
           };
+
           socket.onclose = () => {
-            console.log("WebSocket closed.");
+            console.log("Proxy WebSocket closed. Attempting to reconnect...");
+            statusIndicator.classList.remove('connected');
+            statusIndicator.classList.add('disconnected');
+            statusText.textContent = 'Connection lost. Attempting to reconnect...';
             setTimeout(connect, reconnectTime);
           };
         }
+
         connect();
       });
     </script>
