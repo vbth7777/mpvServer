@@ -70,6 +70,13 @@
         font-weight: 500;
         transition: color 0.3s ease;
       }
+      #error-container p {
+        opacity: 1;
+      }
+      #error-container p:first-child {
+        color: var(--status-disconnected);
+        font-weight: 700;
+      }
     </style>
   </head>
   <body>
@@ -78,12 +85,14 @@
         <div id="status-indicator" class="status-indicator disconnected"></div>
         <h1>Browser Proxy</h1>
         <p id="status-text">This page is the request proxy for the mpvServer application. Keep it open in the background.</p>
+        <div id="error-container" style="display: none;"></div>
       </div>
     </div>
     <script>
       document.addEventListener("DOMContentLoaded", () => {
         const statusIndicator = document.getElementById('status-indicator');
         const statusText = document.getElementById('status-text');
+        const errorContainer = document.getElementById('error-container');
         let socket;
         const reconnectTime = 3000;
 
@@ -95,6 +104,8 @@
             statusIndicator.classList.remove('disconnected');
             statusIndicator.classList.add('connected');
             statusText.textContent = 'Connection established. Ready to proxy requests.';
+            statusText.style.display = 'block';
+            errorContainer.style.display = 'none';
           };
 
           socket.onmessage = async (event) => {
@@ -118,6 +129,15 @@
               socket.send(JSON.stringify(data));
             } catch (error) {
               console.error(`Failed to fetch ${url}:`, error);
+              if (error instanceof TypeError && error.message === 'Failed to fetch') {
+                statusText.style.display = 'none';
+                errorContainer.style.display = 'block';
+                errorContainer.innerHTML = `
+                  <p><strong>Fetch Error:</strong> This is likely a CORS issue.</p>
+                  <p>Please install a CORS extension like <strong>'Allow CORS: Access-Control-Allow-Origin'</strong> and ensure it's enabled for this site.</p>
+                  <p>You may need to restart your browser after installation.</p>
+                `;
+              }
               socket.send(JSON.stringify({
                 error: error.message,
                 status: 'FETCH_ERROR'
