@@ -1,7 +1,7 @@
 const { WebSocketServer, WebSocket } = require("ws");
 const { output } = require("../lib/logger");
 
-const socketServer = new WebSocketServer({ port: 9791 }); 
+const socketServer = new WebSocketServer({ port: 9791 });
 
 function waitForConnection(server) {
   if (server.clients.size > 0) {
@@ -25,9 +25,9 @@ function askClientAndWaitForReply(ws, messageToSend, headers = {}) {
     }, 5000);
 
     const messageListener = (message) => {
-      clearTimeout(timeout); 
-      ws.removeListener("message", messageListener); 
-      resolve(message.toString()); 
+      clearTimeout(timeout);
+      ws.removeListener("message", messageListener);
+      resolve(message.toString());
     };
 
     ws.on("message", messageListener);
@@ -37,6 +37,7 @@ function askClientAndWaitForReply(ws, messageToSend, headers = {}) {
 }
 
 console.log("Browser-Proxy WebSocket server listening on port 9791");
+
 
 async function fetch(url, headers = {}) {
   const client = await waitForConnection(socketServer);

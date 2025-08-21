@@ -21,8 +21,6 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
-// Mount API routes under the /api prefix
-pi prefix/d
 app.use("/api", mpvRoutes);
 app.use("/api/iwara", iwaraRoutes);
 
