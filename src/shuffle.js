@@ -20,4 +20,4 @@ function shuffle(array) {
   return array;
 }
 const arrayShuffled = shuffle(textByLine).join("\n");
-fs.writeFileSync("./running-urls-shuffled.txt", arrayShuffled, "utf-8");
+fs.writeFileSync("./running-urls.txt", arrayShuffled, "utf-8");
