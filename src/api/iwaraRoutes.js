@@ -1,4 +1,3 @@
-
 const express = require("express");
 const router = express.Router();
 const iwaraClient = require("../services/iwaraClient");
@@ -6,13 +5,15 @@ const iwaraClient = require("../services/iwaraClient");
 router.get("/user", async (req, res) => {
   const profileSlug = req.query.profileSlug;
   try {
-    const user = await iwaraClient.getJSON(`https://api.iwara.tv/profile/${profileSlug}`);
+    const user = await iwaraClient.getJSON(
+      `https://apiq.iwara.tv/profile/${profileSlug}`,
+    );
     const idUser = user.user.id;
     const videoDetails = [];
     let page = 0;
     while (true) {
       const videos = await iwaraClient.getJSON(
-        `https://api.iwara.tv/videos?sort=date&page=${page}&user=${idUser}`,
+        `https://apiq.iwara.tv/videos?sort=date&page=${page}&user=${idUser}`,
       );
       if (videos.results.length === 0) {
         break;
