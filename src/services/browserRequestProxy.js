@@ -8,7 +8,7 @@ function waitForConnection(server) {
     const existingClient = server.clients.values().next().value;
     return Promise.resolve(existingClient);
   } else {
-    console.log("No clients found. Waiting for a connection...");
+    output("No browser proxy clients found. Waiting for a connection...");
 
     return new Promise((resolve) => {
       server.once("connection", (ws) => {
@@ -57,4 +57,4 @@ async function fetch(url, headers = {}) {
   return reply;
 }
 
-module.exports = { fetch };
+module.exports = { fetch, socketServer };

@@ -12,4 +12,5 @@ module.exports = {
   pathHistoryLog: path.join(__dirname, "../../history.log"),
   VIDEO_QUEUE_MODE: false,
   token: envToken,
+  WAIT_FOR_BROWSER_PROXY: false,
 };
