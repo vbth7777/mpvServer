@@ -56,7 +56,7 @@ function play(url, pageUrl, token, isLoadFromHistory) {
     isMpvRunning = true;
     let countError = 0;
 
-    const execMpv = async (autoReloadMode = true) => {
+    const execMpv = async (autoReloadMode = false) => {
       let execUrl = url;
       currentPlayingUrl = url;
       if (url && url.match(/https?:\/\/(www)?\.iwara\.tv/)) {
@@ -102,7 +102,7 @@ function play(url, pageUrl, token, isLoadFromHistory) {
 
           if (isReload) {
             isReload = false;
-            execMpv();
+            await execMpv();
             return;
           }
 
@@ -117,13 +117,13 @@ function play(url, pageUrl, token, isLoadFromHistory) {
               output(`Error: ${error.message.split("\n")[0]}`);
               output(`Try requesting again`);
               if (countError++ < 2) {
-                execMpv();
+                await execMpv();
               } else {
                 callback(error);
               }
             } else {
               output("Auto reloading...");
-              execMpv();
+              await execMpv();
             }
           } else if (stderr) {
             callback(stderr);
