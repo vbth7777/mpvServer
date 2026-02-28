@@ -57,4 +57,4 @@ async function fetch(url, headers = {}) {
   return reply;
 }
 
-module.exports = { fetch, socketServer };
+module.exports = { fetch, socketServer, waitForConnection };

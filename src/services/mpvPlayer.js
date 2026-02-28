@@ -12,9 +12,10 @@ const {
   pathRunningUrls,
   VIDEO_QUEUE_MODE,
   pathHistoryLog,
+  IWARA_EXECUTION_MODE,
 } = require("../config");
 const { sendToClient } = require("./websocketManager");
-const { socketServer } = require("./browserRequestProxy");
+const { socketServer, waitForConnection } = require("./browserRequestProxy");
 
 const commandQueue = async.queue((task, callback) => task(callback));
 
@@ -60,7 +61,17 @@ function play(url, pageUrl, token, isLoadFromHistory) {
       let execUrl = url;
       currentPlayingUrl = url;
       if (url && url.match(/https?:\/\/(www)?\.iwara\.tv/)) {
-        if (socketServer.clients.size > 0) {
+        if (IWARA_EXECUTION_MODE === "direct") {
+          output(`[Mode: direct] Bypassing proxy. Running mpv directly...`);
+          autoReloadMode = false;
+        } else if (IWARA_EXECUTION_MODE === "proxy") {
+          output(`[Mode: proxy] Checking for browser proxy connection...`);
+          if (socketServer.clients.size === 0) {
+            output(`No browser client connected. Waiting for a connection...`);
+          }
+          await waitForConnection(socketServer);
+          output(`Browser client connected. Proceeding with proxy...`);
+
           let retries = 3;
           while (retries > 0) {
             execUrl = await getVideoUrl(url, token);
@@ -74,14 +85,37 @@ function play(url, pageUrl, token, isLoadFromHistory) {
 
           if (!execUrl) {
             output(
-              `Failed to get video URL for ${url} after multiple attempts. Falling back to ytdl.`,
+              `Failed to get video URL for ${url} after multiple attempts using proxy mode. Falling back to ytdl.`,
             );
             execUrl = url; // Fallback to original URL
             autoReloadMode = false;
           }
         } else {
-          output("No client connected, running mpv directly with ytdl...");
-          autoReloadMode = false;
+          // IWARA_EXECUTION_MODE === "auto" (default)
+          output(`[Mode: auto] Checking for browser proxy connection...`);
+          if (socketServer.clients.size > 0) {
+            let retries = 3;
+            while (retries > 0) {
+              execUrl = await getVideoUrl(url, token);
+              if (execUrl) break;
+              output(
+                `[Attempt ${4 - retries}] Failed to get video URL for: ${url}`,
+              );
+              retries--;
+              await sleep(1000); // Wait a bit before retrying
+            }
+
+            if (!execUrl) {
+              output(
+                `Failed to get video URL for ${url} after multiple attempts. Falling back to ytdl.`,
+              );
+              execUrl = url; // Fallback to original URL
+              autoReloadMode = false;
+            }
+          } else {
+            output("No client connected, running mpv directly with ytdl...");
+            autoReloadMode = false;
+          }
         }
       } else {
         autoReloadMode = false;
