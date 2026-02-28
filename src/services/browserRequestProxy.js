@@ -3,17 +3,29 @@ const { output } = require("../lib/logger");
 
 const socketServer = new WebSocketServer({ port: 9791 });
 
-function waitForConnection(server) {
+function waitForConnection(server, timeoutMs = null) {
   if (server.clients.size > 0) {
     const existingClient = server.clients.values().next().value;
     return Promise.resolve(existingClient);
   } else {
     output("No browser proxy clients found. Waiting for a connection...");
 
-    return new Promise((resolve) => {
-      server.once("connection", (ws) => {
+    return new Promise((resolve, reject) => {
+      let timeoutId = null;
+
+      const connectionListener = (ws) => {
+        if (timeoutId) clearTimeout(timeoutId);
         resolve(ws);
-      });
+      };
+
+      server.once("connection", connectionListener);
+
+      if (timeoutMs) {
+        timeoutId = setTimeout(() => {
+          server.removeListener("connection", connectionListener);
+          reject(new Error(`Timeout of ${timeoutMs}ms exceeded while waiting for a browser connection.`));
+        }, timeoutMs);
+      }
     });
   }
 }

@@ -69,25 +69,31 @@ function play(url, pageUrl, token, isLoadFromHistory) {
           if (socketServer.clients.size === 0) {
             output(`No browser client connected. Waiting for a connection...`);
           }
-          await waitForConnection(socketServer);
-          output(`Browser client connected. Proceeding with proxy...`);
+          try {
+            await waitForConnection(socketServer, 60000); // 1 minute timeout
+            output(`Browser client connected. Proceeding with proxy...`);
 
-          let retries = 3;
-          while (retries > 0) {
-            execUrl = await getVideoUrl(url, token);
-            if (execUrl) break;
-            output(
-              `[Attempt ${4 - retries}] Failed to get video URL for: ${url}`,
-            );
-            retries--;
-            await sleep(1000); // Wait a bit before retrying
-          }
+            let retries = 3;
+            while (retries > 0) {
+              execUrl = await getVideoUrl(url, token);
+              if (execUrl) break;
+              output(
+                `[Attempt ${4 - retries}] Failed to get video URL for: ${url}`,
+              );
+              retries--;
+              await sleep(1000); // Wait a bit before retrying
+            }
 
-          if (!execUrl) {
-            output(
-              `Failed to get video URL for ${url} after multiple attempts using proxy mode. Falling back to ytdl.`,
-            );
-            execUrl = url; // Fallback to original URL
+            if (!execUrl) {
+              output(
+                `Failed to get video URL for ${url} after multiple attempts using proxy mode. Falling back to ytdl.`,
+              );
+              execUrl = url; // Fallback to original URL
+              autoReloadMode = false;
+            }
+          } catch (err) {
+            output(`[Proxy Timeout] ${err.message}. Falling back to ytdl.`);
+            execUrl = url;
             autoReloadMode = false;
           }
         } else {
