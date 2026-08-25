@@ -6,9 +6,15 @@ const { output } = require("./lib/logger");
 const mpvRoutes = require("./api/mpvRoutes");
 const iwaraRoutes = require("./api/iwaraRoutes");
 const { socketServer } = require("./services/browserRequestProxy");
-const { port, pathRunningUrls, VIDEO_QUEUE_MODE, token, WAIT_FOR_BROWSER_PROXY } = require("./config");
+const {
+  port,
+  pathRunningUrls,
+  VIDEO_QUEUE_MODE,
+  token,
+  WAIT_FOR_BROWSER_PROXY,
+} = require("./config");
 require("./services/websocketManager");
-require("./services/browserRequestProxy"); // This require is for side effects, so it's fine to keep it here.
+require("./services/browserRequestProxy"); // This require is for side effects, so its fine to keep it here.
 
 const app = express();
 
@@ -17,14 +23,16 @@ app.use(express.static(path.join(__dirname, "../../public")));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/index.html'));
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "../public/index.html"));
 });
 
 app.use("/api", mpvRoutes);
 app.use("/api/iwara", iwaraRoutes);
 
-app.listen(port, () => output(`App listening at http://localhost:${port}`));
+app.listen(port, "0.0.0.0", () =>
+  output(`App listening at http://localhost:${port}`),
+);
 
 function resumeRunningUrls() {
   if (!fs.existsSync(pathRunningUrls)) {
