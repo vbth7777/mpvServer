@@ -31,8 +31,8 @@ const resetColor = "\x1b[0m";
 function filterUrl(url) {
   if (url?.match(/https?:\/\/(www)?\.youtube\.com/)) {
     const id = url.match(
-      /https?:\/\/(www)?\.youtube\.com\/watch\?v=([a-zA-Z0-9-_]+)/,
-    )[2];
+      /https?:\/\/(www)?\.youtube\.com\/(watch\?v=|shorts\/)([a-zA-Z0-9-_]+)/,
+    )[3];
     return `https://www.youtube.com/watch?v=${id}`;
   }
   return url;

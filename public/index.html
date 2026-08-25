@@ -4,9 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Browser Proxy Client</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
     <style>
       :root {
         --background-color: #1a1a1a;
@@ -15,7 +18,7 @@
         --primary-color: #4a90e2;
         --status-connected: #34c759;
         --status-disconnected: #ff3b30;
-        --font-family: 'Inter', sans-serif;
+        --font-family: "Inter", sans-serif;
       }
       body {
         margin: 0;
@@ -84,15 +87,18 @@
       <div class="card">
         <div id="status-indicator" class="status-indicator disconnected"></div>
         <h1>Browser Proxy</h1>
-        <p id="status-text">This page is the request proxy for the mpvServer application. Keep it open in the background.</p>
-        <div id="error-container" style="display: none;"></div>
+        <p id="status-text">
+          This page is the request proxy for the mpvServer application. Keep it
+          open in the background.
+        </p>
+        <div id="error-container" style="display: none"></div>
       </div>
     </div>
     <script>
       document.addEventListener("DOMContentLoaded", () => {
-        const statusIndicator = document.getElementById('status-indicator');
-        const statusText = document.getElementById('status-text');
-        const errorContainer = document.getElementById('error-container');
+        const statusIndicator = document.getElementById("status-indicator");
+        const statusText = document.getElementById("status-text");
+        const errorContainer = document.getElementById("error-container");
         let socket;
         const reconnectTime = 3000;
 
@@ -101,11 +107,12 @@
 
           socket.onopen = () => {
             console.log("Proxy WebSocket connected to server.");
-            statusIndicator.classList.remove('disconnected');
-            statusIndicator.classList.add('connected');
-            statusText.textContent = 'Connection established. Ready to proxy requests.';
-            statusText.style.display = 'block';
-            errorContainer.style.display = 'none';
+            statusIndicator.classList.remove("disconnected");
+            statusIndicator.classList.add("connected");
+            statusText.textContent =
+              "Connection established. Ready to proxy requests.";
+            statusText.style.display = "block";
+            errorContainer.style.display = "none";
           };
 
           socket.onmessage = async (event) => {
@@ -125,23 +132,30 @@
 
             try {
               const response = await fetch(url, { headers });
+              console.log("FETCHIN URL:", url, "STATUS:", response.status);
+              console.log("HEADERS:", response.headers);
               const data = await response.json();
               socket.send(JSON.stringify(data));
             } catch (error) {
               console.error(`Failed to fetch ${url}:`, error);
-              if (error instanceof TypeError && error.message === 'Failed to fetch') {
-                statusText.style.display = 'none';
-                errorContainer.style.display = 'block';
+              if (
+                error instanceof TypeError &&
+                error.message === "Failed to fetch"
+              ) {
+                statusText.style.display = "none";
+                errorContainer.style.display = "block";
                 errorContainer.innerHTML = `
                   <p><strong>Fetch Error:</strong> This is likely a CORS issue.</p>
                   <p>Please install a CORS extension like <strong>'Allow CORS: Access-Control-Allow-Origin'</strong> and ensure it's enabled for this site.</p>
                   <p>You may need to restart your browser after installation.</p>
                 `;
               }
-              socket.send(JSON.stringify({
-                error: error.message,
-                status: 'FETCH_ERROR'
-              }));
+              socket.send(
+                JSON.stringify({
+                  error: error.message,
+                  status: "FETCH_ERROR",
+                }),
+              );
             }
           };
 
@@ -151,9 +165,10 @@
 
           socket.onclose = () => {
             console.log("Proxy WebSocket closed. Attempting to reconnect...");
-            statusIndicator.classList.remove('connected');
-            statusIndicator.classList.add('disconnected');
-            statusText.textContent = 'Connection lost. Attempting to reconnect...';
+            statusIndicator.classList.remove("connected");
+            statusIndicator.classList.add("disconnected");
+            statusText.textContent =
+              "Connection lost. Attempting to reconnect...";
             setTimeout(connect, reconnectTime);
           };
         }

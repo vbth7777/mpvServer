@@ -55,7 +55,10 @@ async function getVideoUrl(url, accessToken) {
       return videoInfo.embedUrl;
     }
 
-    const fileUrl = videoInfo.fileUrl;
+    let fileUrl = videoInfo.fileUrl;
+    if (fileUrl.includes("://files.iwara.tv")) {
+      fileUrl = fileUrl.replace("://files.iwara.tv", "://filesq.iwara.tv");
+    }
     const fileId = getFileId(fileUrl);
     const expire = getExpire(fileUrl);
 
